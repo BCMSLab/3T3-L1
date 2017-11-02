@@ -1,0 +1,389 @@
+---
+output:
+  word_document:
+        reference_docx: style_reference.docx
+bibliography: autophagy_rnaseq.bib
+csl: oncotarget.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, error = FALSE, cache = TRUE, fig.width = 6.5, dpi = 500)
+```
+
+```{r load_libraries_data_functions}
+library(DEXSeq)
+library(DESeq2)
+library(goseq)
+library(limma)
+library(genefilter)
+library(e1071)
+
+library(GenomicFeatures)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(org.Mm.eg.db)
+library(GO.db)
+library(KEGG.db)
+library(pathview)
+
+library(tidyverse)
+library(reshape2)
+library(cowplot)
+library(pheatmap)
+library(RColorBrewer)
+library(DiagrammeR)
+library(stringr)
+library(knitr)
+
+load('../processed_data.RData')
+
+source('../R/00.functions.R')
+```
+
+# TITLE PAGE  
+
+Characterization of autophagy-related genes during adipocyte differentiation using the public-access data  
+
+Mahmoud Ahmed, Huynh Nguyen, Jin Seok Hwang, Sahib Zada, Trang Lai, Deok Ryong Kim  
+
+Department of Biochemistry and Convergence Medical Sciences, Gyeongsang National University School of Medicine, Jinju, Republic of Korea 527-27  
+
+Corresponding author:  
+
+Deok Ryong Kim, Ph.D.    
+
+E.mail: drkim@gnu.ac.kr    
+
+Tel: +82-55-772-8054  
+
+Keywords: 
+
+autophagy, adipocyte differentiation, 3T3-L1, RNA-seq, gene ontology
+
+Abstract word count: 223   
+
+Text word count: 2857
+
+Number of tables: 4  
+
+Number of figures: 5  
+
+# ABSTRACT  
+
+Autophagy contributes to reorganizing intracellular components and forming fat droplets during the adipocyte differentiation. Here, we systematically describe the role of autophagy-related genes and gene sets during the differentiation of adipocytes using RNA-seq public-access datasets. Eight RNA-seq samples of MDI-induced 3T3-L1 pre-adipocytes at four different time points were obtained from the European Nucleotide Archive (ENA). Raw reads were aligned to the USCS mouse reference genome (mm10) using HISAT2, and aligned reads were summarized at the gene or exon level using HTSeq. DESeq2 and DEXSeq were used to model the gene and exon counts and test for differential expression and relative exon usage, respectively. Gene count/fragment per million (FPM) were used to apply the gene set and pathway enrichment analysis implemented in package limma. Data were obtained, processed and annotated using R and Bioconductor. Several autophagy-related genes and autophagy gene sets, as defined in the Gene Ontology, were actively regulated during the course of the adipocyte differentiation. We further characterized these gene sets by clustering their members to a few distinct temporal profiles. Other potential functionally related genes were identified using a machine learning procedure. In summary, we characterized the autophagy gene sets and their members to biologically meaningful groups and elected a number of genes to be functionally related based on their expression patterns, suggesting that autophagy plays a critical role in adipogenesis.  
+
+# INTRODUCTION  
+
+3T3-L1 pre-adipocyte is a mouse fibroblast that has the potential to differentiate into mature adipocyte when treated with the MDI differentiation induction medium [@Green1974]. Therefore, MDI-induced 3T3-L1 cells can be used as a platform for studying the adipocyte differentiation and further understanding of the development of obesity and insulin resistance. Autophagy, a lysosome-dependent degradation process, is involved in many cellular mechanisms including stress responses, cell growth and death, and cell differentiation. Particularly, it contributes to reorganizing intracellular components and forming fat droplets during the adipocyte differentiation [@Dong2011]. Inhibition of autophagy during the adipogenic induction of 3T3-L1 cells results in the prevention of formation of lipid droplets [@Singh2009].  
+
+High through-put technologies like microarrays and RNA-seq facilitate the study of the cell biology by enabling the investigation of a large number of genetic elements compared with the conventional laboratory techniques. The availability of public-access data in repositories such as the Sequence Read Archive (SRA) and the European Nucleotide Archive (ENA) enables biologists to reexamine previously published data for their own purposes of discovery and hypothesis generation [@Leinonen2011; @Cochrane2008].  
+
+Here, we use a public-access RNA-seq dataset of MDI-induced 3T3-L1 preadipocyte to study the role of autophagy in the adipocyte differentiation. First, we examine the change in gene expression and relative exon usage overtime. Then, we perform a gene set enrichment analysis and visualize the autophagy pathways to exploit the potential changes and modification in differentiating adipocytes compared to preadipocytes. Finally, we present the results in an accessible and searchable format and make it available on the web.  
+
+# RESULTS  
+
+## Adipocyte differentiation markers  
+The mouse fibroblast cells, 3T3-L1 pre-adipocytes, differentiate into mature adipocytes when treated with the MDI differentiation medium (160 nM insulin, 250 nM dexamethasone, and 0.5 mM 1-methyl-3-isobutylxanthine). Once fully confluent, 3T3-L1 pre-adipocyte cultures undergo a growth arrest followed by cell division and differentiation upon treatment with MDI [@Scott1982]. Al Adhami *et al.* used RNA-seq technology to capture the mRNA levels at 4 time points corresponding to these differentiation stages; day 0 (pre-adipocyte proliferation), day 2 (quiescence state) and 10 h (clonal expansion) after MDI treatment, day 6 (differentiation) after MDI treatment [@AlAdhami2015]. To confirm the differentiation of the adipocyte, we showed the expression levels of 3 important adipocyte markers; *Cebpa*, CCAAT/enhancer binding protein (C/EBP) alpha; *Lpl*, lipoprotein lipase; *Pparg*, peroxisome proliferator activated receptor gamma. The RNA levels of these three adipocyte differentiation marker genes were similarly increased, which are correlated with the maturation of adipocytes (Fig. S1) as reported previously [@Ntambi2000].   
+
+## Gene expression of autophagy-related genes in adipogenesis  
+To examin the expression profiles of autophagy-related genes during the differentiation of adipocytes, we used Al Adhami et al dataset to test for differential expression as described in the methods section. As expected, multidimensional scaling analysis (MDS) of 8 samples showed replicates from similar time points clustering together and differentiating samples away from the other time points (Fig. S2A & B). We first conducted a pairwise comparison between the 4 time points and the numerical summaries are shown in Figure 1A. Of total autophagy-related genes (n = 135) identified in the autophagy gene ontology term, 77 genes were expressed deferentially (adjusted *p*-value < 0.1) between quiescent (day 2) and proliferating cells (day 0), 93 genes between clonal expanding (10 h after MDI treatment) and proliferating cells (day 0), and finally 96 genes between differentiating (day 6 after MDI treatment) and proliferating cells (day 0).  
+
+Using the likelihood test ratio, we then tested the different expression pattern across the 4 differentiation stages. According to the heatmap of differentially expressing genes during adipogenesis (Fig. 2), many autophagy-related genes (n = 35) were found to be significant (adjusted *p*-value < 0.1 and log fold-change > 1). To validate these findings, another dataset composed of six RNA-seq samples of MDI-induced 3T3-L1 at 2 time points (day 0 and day 7 after MDI treatment), deposited by Duteil et al [6], was processed using the same pipeline. The  the average base expression of 135 genes from both datasets showed a high correlation (Pearson’s coefficient values = 0.87) between these two independent experiments  (Fig. S2C).  
+
+## The distinct patterns of autophagy-related genes profiles during the adipocyte differentiation
+In the Figure 2, the heatmap suggests that there are four distinct temporal profiles of autophagy-related genes expressing over the time of adipogenesis. To further characterize these patterns, we used the c-means algorithm to cluster the autophagy genes into the distinct profiles based on their Manhattan distance. Indeed, the resulting four types of clusters (cluster #1~4) corresponded to the main temporal profiles (Fig. 3A). Except the first cluster, autophagy-related genes exhibited relatively low expression at the proliferating stage (day 0) and a higher expression at the differentiating stage of adipocytes (day 6 after MDI treatment). While autophagy-related genes in cluster 3 showed a gradual increase of expression overtime, clusters 3 and 4 showed that expression of some autophagy genes was occasionally decreased at 10 hours after MDI treatment. Genes in the cluster 1 showed a reverse pattern, higher expression at proliferating cells (day 0) and a lower expression at the differentiating cells (day 6 after MDI treatment). The members of each cluster were enumerated by symbol and gene name in Table 1.  
+
+Next, we used an algorithm to find other non-autophagy genes with close expression patterns, not identified as autophagy-related genes in the autophagy gene ontology term. We first identified the cluster mediod - a gene with the most typical pattern to a certain cluster - for each of the above described clusters and used the genefinder algorithm in the package genefilter to find the 5 closest genes to each mediods. We showed that the expression patterns of the closer 20 genes (four groups: five genes per each group) to the previously identified clusters (Fig.3B) and listed their symbols and gene names in Table 2.  
+
+## Enrichment of autophagy gene sets during the adipocyte differentiation  
+To further understand the ongoing regulation of autophagy at the gene set level during adipogenesis, we first identified the autophagy offspring (sub-categories) gene sets in the gene ontology. Then, we used the gene counts to test for their differential enrichment during the different time courses of adipocyte differentiation. Few autophagy gene sets showed significant (False Discovery Rate < 0.1) between quiescent and proliferating cells in adipogenesis (Fig. 4). However, the high numbers of autophagy gene sets were significantly enriched between adipocyte-differentiating cells and proliferating control cells due to a largely increased proportion of deferentially expressed genes during the adipocyte differentiation. We represented the proportion of deferentially expressed genes for each autophagy gene set at three different conditions (quiescence, clonal expansion, differentiation) compared to the control condition (proliferation) in Figure 4 and listed the corresponding false discovery rates  in Table 3.  
+
+To better visualize the changes in the autophagy process during the adipocyte differentiation, we mapped the average gene counts of two conditions (*left*, proliferation and *right*, differentiation) as color values to the mouse KEGG pathway for autophagy (Fig. 5).  
+
+## Enrichment of signaling pathways in adipogenesis   
+Similarly, we identified the signaling pathways in the KEGG databases that shares at least one of their members with the autophagy regulation pathway. After the enrichment of the pathways using the gene counts, we listed the significant pathways in the later three time points (quiescence, clonal expansion, differentiation) compared to the first proliferation stage (day 0) in Table 4. The mTOR, Jak-STAT, insulin and adipocytokine signaling pathways were highly enriched between differentiating and non-differentiating (proliferating) cells (Fig. S3), suggesting that these signal pathways associating with autophagy might play a significant role in adipogenesis.  
+
+## Differential exon usage of autophagy genes in adipogenesis  
+
+In addition to the changes of the expression level of genes involved in the cellular process, relative usage of certain exons and the abundance of certain transcripts is an additional potential mechanism for regulation and modification of autophagy during the adipocyte differentiation. We tested for the differential exon usage in the eight samples of 3T3-L1 cells used in this study and identified the potential alternative splicing events. A few of these events were identified in quiescent cells and more events at the clonal expansion and differentiating cells compared to the control proliferating cells. We summarized the differential exon usage events in Figure 1B. In particular, we represented the usage of 15 exons of *Acbd5* (acyl-CoA binding domain containing 5) gene, known to function in the transport and distribution of long chain acyl-Coenzyme A in cells, during the adipocyte differentiation in Figure S4. Exons 1, 2 and 8 showed significant differential usage across time (adjusted *p*-value < 0.1). Exon 2 is only a part of 2 transcripts (bottom) which indicates a potential splicing events. In other words, transcripts containing exon 2 were less expressed in differentiating samples compared to earlier stages and probably the first two transcripts were more abundant.  
+
+# DISCUSSION  
+
+Autophagy is an essential process during the pre-adipocyte 3T3-L1 differentiation into mature adipocytes. According to previous studies, inhibition of autophagy by knockdown of *Atg5* or *Atg7* genes in 3T3-L1 preadipocytes prevented the adipogenesis and the formation of lipid droplets. Also, autophagy inhibition caused a significant decrease in adipocyte differentiation markers, such as CCAAT/enhancer-binding protein-alpha (*CEBPa*) and peroxisome proliferator activated receptor-gamma (*PPARg*) [@Singh2009]. In this report, we examined the differential expression of autophagy-related genes at the transcriptional level during the adipocyte differentiation using public-access RNA-seq datasets. Our analysis reveals that the expression of *Atg5* and *Atg7* genes is maintained at a high level during the course of differentiation with a slight with respect to the maturation stage when 3T3-L1 pre-adipocytes are induced in  the differentiation medium (data not shown). Although we cannot quantify the lipid contents in this study, we show the relatively high expression of a number of protein markers that are highly correlated with lipogenesis in adipose tissue in Figure S1B [@Roberts2009], indicating that autophagy is critical for the adipocyte differentiation and adipogenesis.  
+
+Other cells than adipocytes also have the ability to store different amounts of lipids. For instance, hepatocytes and neurons cause accumulation of lipid droplets in some pathological conditions [@Singh2009; @Martinez-Vicente2010]. In particular,  hepatocytes use autophagy to generate free lipids from lipid droplets for energy metabolism using lipophagy, a specialized autophagy process for lipid degradation [@Singh2009]. In addition to the role of autophagy in lipid droplet formation in adipogenesis, autophagy also takes a significant part in a lipolytic pathway. The gene ontology term lipophagy represented by one gene member RAS oncogene family (*Rab7*) appears to be slightly activated in differentiating adipocyte compared to the control pre-adipocytes. In addition, adrenergic receptor, beta 2 (*Adrb2*), a member of the term positive regulation of lipophagy is significantly up-regulated in the same comparison. However, how these two lipophagy-associated genes at the gene ontology term can function in the canonical autophagy process still remains to be demonstrated.  
+
+The classic ability of autophagy to recycle the cellular components is particularly important during the adipocyte differentiation. Autophagy targets different intracellular organelles, cytoplasmic regions and protein aggregates. This in turn allows adipocytes to store large amounts of lipids and to gain a distinct morphology. Additionally, the nutrients acquired by the autophagy-dependent degradation in adipogenesis can be good sources for adipocyte growth and lipid biosynthesis. The gene set enrichment analysis reveals activation of autophagy gene subsets responding to distinct intracellular targets; mictophagy (mitochondria), nucleophagy (nucleus), reticulophgy (endoplasmic reticulum), pexophagy (peroxisomes), xenophagy (cytoplasmic regions) and aggrephagy (protein aggregates). For instance, mitophagy-specific genes such as  *Pink1*, or *Park2* [@Jin2013; @Narendra2008; @Vives-Bauza2010] are differently expressed at different time points during the adipocyte differentiation. Also, *Fam134b* gene is specifically involved in the selective removal of endoplasmic reticulum under a certain condition [@Khaminets2015; @Mochida2015]. *Optn* gene also plays a critical role in degradation of some cytoplasmic regions via xenophagy [@Sica2015]. Indeed, we showed that expression of these two genes was in a developmental stage-specific manner during adipocyte differentiation.  
+
+Given the role of autophagy in adipocyte differentiation for lipid droplet formation and recycling the cellular components, we might also expect some significant quantitative changes in the process or in its associated regulatory pathways. It is not clear whether the quantification of autophagosomes at a certain time point without blocking the autophagy flux is possible. Nonetheless, transcript levels of both microtubule associated protein 1 light chain 3 (*maplc3a*) and autophagy-related 5 (*Atg5*) are highly correlated to autophagosome formation. As shown in (Fig. 4 and Table 3), we observed a significant up-regulation of members of the autophagosome assembly genes (31% and 75% up-regulation at 10 h and 6 days after induction, respectively; adjusted *p*-value < .01) Consequently, we also observe a significant enrichment of autophagy-related gene ontology terms; namely protein localization to pre-autophagosomal structure and protein lipidation involved in autophagosome assembly. Taken together, we can infer a quantitative increase of autophagy during the adipocyte differentiation based on increased transcription levels of *Map1lc3a* and other genes involved in its localization and lipidation.  
+
+Sub-grouping process of autophagy to several offspring gene sets in the gene ontology can give the detailed information to understand the role of autophagy in adipogenesis at the gene set level. Based on only mRNA levels obtained from public-access RNA-seq data, we indeed found a significant enrichment of many autophagy gene sets during the course of adipocyte differentiation although there still would be difficult to understand how each autophagy gene set is exactly related to among different types of autophagy.  
+
+Detailed knowledge of relative gene expression levels of key genes in autophagy-related gene sets and their overall enrichment overtime could be used to emphasis certain aspects of the involvement of autophagy in adipocyte differentiation. Basal autophagy is activated when pre-adipocytes respond to the differentiation stimulus. Organelle-specific autophagy is probably employed to achieve the structural modification and meet the metabolic demands in mature adipocytes. Quantitative and regulatory changes are indeed required to govern the autophagy response during the differentiation. Not only autophagy-related gene sets such as autophagosome assembly and signaling pathways such as mTOR and Jak-STAT but also adipogenic pathways like insulin and adipocytokine signaling show a significant enrichment at the differentiation stage of adipocytes compared to control.  
+
+Systematic analysis using public-access databases such as microarray or RNA-seq might provide new valuable information to collectively understand a specific cellular pathway. Here we show that expression of many autophagy-related genes are highly up-regulated at the differentiation stages of adipocytes as shown in previous reports and autophagy gene sets defined in the gene ontology are enriched in these developmental stages, further confirming the critical role of autophagy in adipogenesis.  
+
+# MATERIALS AND METHODS  
+
+## Raw data and processing  
+
+The dataset (Al Adhami *et al.*) consists of 8 samples (two of each time point) of 3T3-L1 preadipocytes treated with/without MDI (160 nM insulin, 250 nM dexamethasone, and 0.5 mM 1-methyl-3-isobutylxanthine) at four time points; day 0 (pre-adipocyte proliferation), day 2 (quiescence state) and 10 h (clonal expansion) after MDI treatment, day 6 (differentiation) after MDI treatment. The protocol for generating the RNA libraries and sequencing is described [@AlAdhami2015]. Raw reads for 8 samples were obtained form ENA (PRJNA218101). Reads were aligned to the mouse USCS (mm10) reference genome using the splicing aligner HISAT2 [@Kim2015]. Aligned reads were counted using HTSeq and summarized at gene and exon level guided by the corresponding annotation data from the USCS mm10. A validation dataset (Duteil et al) consists of 6 samples (three of each time point) of 3T3-L1 cells at two time points day 0 and day 7 after MDI treatment. The protocol for generating the RNA libraries and sequencing is described [@Duteil2014]. Raw data were obtaind from ENA (PRJNA219405) and processed by the same above mentioned pipeline to summarize counts at gene level. Raw data were processed by the same above mentioned pipeline to obtain counts at gene level.  
+
+## Differential expression and exon usage  
+
+Pairwise comparison between control (proliferation) and 3 conditions (quiescence, clonal expansion and differentiation) were conducted by applying Wald test of the negative binomial distribution to the gene counts using DESeq2 [@Love2014]. Likelihood Test Ratio was also applied using DESeq2 to test for differential expression across all conditions. DEXSeq was used to test for the differential exon usage [@Reyes2013]. *p*-values were adjusted for multiple testing using BH and the cutoff 0.1 was chosen.  
+
+## Clustering and pattern finding  
+
+C-means algorithm in the e1071 package was used to cluster the genes into distinct temporal profile. C-mean is a fuzzy version of the k-means algorithm [@Meyer2017]. Package genefilter was used to find genes with similar expression pattern to the clusters' mediods [@Gentleman2017].  
+
+## Gene set enrichment analysis  
+
+Gene ontology (GO) was used to identify the autophagy gene sets and related genes [@Ashburner2000]. KEGG pathways were used to identify signaling pathways that share one or more of the autophagy related genes [@Kanehisa2017]. The mouse organism annotation package (org.Mm.eg.db) was used to retrieve the relative annotations [@Carlson2017]. Gene counts were first transformed to the fragment per million and using package limma a rotation test for the gene set and pathway enrichment was applied to the comparison between between control (proliferation, day 0) and 3 conditions (quiescence, day 2; clonal expansion, 10 h after treatment; differentiation, day 6 after treatment) [@Ritchie2015]. *p*-values were adjusted for multiple testing using False Discovery Rate (FDR) and the cutoff 0.1.  
+
+## Reproducibilty and interactive version  
+
+The data analysis and visualization were mainly done in an R environment. A fully reproducible version of this manuscript is available at () along with the scripts that were used to process and analyze the data.  
+
+## ABBREVIATIONS  
+
+## AUTHOR CONTRIBUTIONS  
+
+## ACKNOWLEDGMENTS  
+
+## CONFLICTS OF INTEREST  
+
+## FUNDING  
+
+# TABLES  
+
+Table 1. Autophagy related genes with distinct expression patterns  
+
+```{r table_1}
+clusters %>%
+  left_join(gene_annotation, by = c('gene_id' = 'SYMBOL')) %>%
+  dplyr::select(cluster, gene_id, GENENAME) %>%
+  unique %>%
+  arrange(cluster) %>%
+  setNames(c('Cluster', 'Symbol', 'Name')) %>%
+  kable
+```
+
+### table 2  
+Table 2. Non-autophagy genes with similar expression patterns  
+
+```{r table_2}
+sim %>%
+  left_join(gene_annotation, by = c('gene_id' = 'SYMBOL')) %>%
+  dplyr::select(cluster, gene_id, GENENAME) %>%
+  unique %>%
+  arrange(cluster) %>%
+  setNames(c('Cluster', 'Symbol', 'Name')) %>%
+  kable
+```
+
+### table 3  
+Table 3. Enrichment of autophagy gene sets during adipocyte differentiation.  
+
+```{r table_3}
+res_go %>%
+  filter(category %in% unlist(mget('GO:0006914', GOBPOFFSPRING))) %>%
+  mutate(term = Term(category),
+         FDR = round(FDR, 2)) %>%
+  dplyr::select(category, term, stage, FDR) %>%
+  spread(stage, FDR) %>%
+  dplyr::select(1:2, 5, 3:4) %>%
+  setNames(c('GO ID', 'Term', 'Quiescence', 'Clonal Expansion', 'Differentiation')) %>%
+  kable
+```
+
+### table 4  
+Table 4. Enrichment of KEGG Pathways sharing autophagy related genes.  
+
+```{r table_4}
+ind <- gene_annotation %>%
+  filter(PATH == '04140') %>%
+  dplyr::select(SYMBOL) %>%
+  unlist %>%
+  unique
+
+ind <- gene_annotation %>%
+  filter(SYMBOL %in% ind) %>%
+  dplyr::select(PATH) %>%
+  unlist %>%
+  unique
+
+res_kegg %>%
+  filter(category %in% ind) %>%
+  mutate(name = mget(category, KEGGPATHID2NAME)) %>%
+  mutate(FDR = round(FDR, 2)) %>%
+  dplyr::select(name, FDR, stage) %>%
+  spread(stage, FDR) %>%
+  dplyr::select(1, 4, 2:3) %>%
+  setNames(c('Pathway', 'Quiescence', 'Clonal Expansion', 'Differentiation')) %>%
+  kable
+```
+
+# FIGURE LEGENDS  
+
+Figure 1. Summaries of differential expression and differential exon usage analyses of autophagy-related genes. Raw sequencing data of 8 samples (4 time points) were aligned to the mm10 USCS reference genome using HISAT2 and the feature counts were summarized at the gene or exon level using HTSeq. Differential expression analysis and differential exon usage for the pairwise comparison were performed using DESeq2 and DEXSeq, respectively. Numerical summary of group comparison between proliferation (day 0) and quiescence (day 2), clonal expansion (10 hours after MDI treatment) and differentiation   (day 6 after MDI treatment) at the gene level (A) or exon usage (B) were shown as a Venn diagram, respectively. Significant features (adjusted *p*-values < 0.1) of autophagy-related genes were identified using the gene ontology term autophagy (GO:0006914) in the mouse organism annotation package org.Mm.eg.db.  
+  
+Figure 2. Expression values of autophagy-related genes during the course of adipocyte differentiation. Counts of total 19692 genes in 8 samples were normalized and examined for differential expression by DESeq2 Likelihood ratio test of the negative binomial distribution for the pairwise comparison between proliferation (day 0) and quiescence (day 2), clonal expansion (10 hours after MDI treatment) and differentiation (day 6 after MDI treatment). Autophagy related features were identified using the gene ontology term autophagy (GO:0006914) in the mouse organism annotation package org.Mm.eg.db. Thirty five genes were found significant at the 3 comparisons (adjusted *p*-value < 0.1 and log fold-change > 1) were identified, and their scaled gene counts were shown as color values (dark green for high and light green for low counts). Rows are labeled by official symbols and columns by the SRA sample identifiers. Sample annotations (time point and induction) are mapped to the corresponding samples by a color key.  
+  
+Figure 3. Expression patterns of autophagy-related genes and non-autophagy genes. (A) Autophagy-related genes were identified using the gene ontology term autophagy (GO:0006914) in the mouse organism annotation package org.Mm.eg.db, then were clustered using the Manhattan distance and the c-means algorithm. Each panel represents a distinct cluster (expression profile across time); gray colors indicate the area spanned by the cluster members, and the blue line is a trend within each cluster. y-axis is the standardized expression (mean subtracted and divided by the standard deviation). (B) Non-autophagy genes were examined for showing similar expression patterns using genefinder algorithm in the genefilter package. The 5 closest genes (indicated by different color lines) within each cluster were selected and shown in separate panels. y-axis is the standardized expression (mean subtracted and divided by the standard deviation).  
+  
+Figure 4. Enrichment of autophagy gene sets during adipocyte differentiation. Autophagy gene sets were identified using the offspring of the gene ontology term autophagy (GO:0006914). Package limma were used to text of the gene set enrichment by applying the rotation test to the fragment per million matrix and the comparisons between proliferating cells (day 0) and quiescent cells (day 2), clonal expanding cells (10 hours after MDI treatment) and differentiating cells (day 6 after MDI treatment). Bars represent the proportion of genes in a gene set (labeled by GO ids) that are deferentially expressed at a certain comparison. Color indicates whether the overall gene set enrichment is significant (*green*) or not (*red*).   
+  
+Figure 5. Autophagy KEGG pathway map in proliferating pre-adipocytes and differentiating adipocytes. Mouse autophagy pathway (04140) graph was obtained from the KEGG pathway database using pathview package. Scaled fragment per million of genes were used to map the expression levels (red for high and green for low) to the graph. Each node is divided to two parts; left, proliferating pre-adipocytes (day 0) and right, differentiating adipocyte cells (day 6 after MDI treatment).  
+
+# FIGURES  
+
+```{r figure_1, fig.height=3}
+par(mfrow = c(1, 2))
+# A
+ind <- gene_annotation %>%
+  filter(GO == 'GO:0006914') %>%
+  dplyr::select(SYMBOL) %>%
+  unlist %>%
+  unique
+
+res_groups %>%
+  filter(row %in% ind) %>%
+  mutate(stage = str_sub(stage, start = 6),
+         padj = ifelse(padj < .1, 1, 0)) %>%
+  acast(row ~ stage, value.var = 'padj') %>%
+  modified_vennDiagram(circle.col = c('red', 'blue', 'green'),
+                       mar = rep(0, 4),
+                       cex = rep(.7, 4),
+                       names = c('Clonal Expansion', 'Differentiation', 'Quiescence'))
+mtext('A', line = 1, adj = 0)
+# B
+res_exon_groups %>%
+  bind_rows %>%
+  mutate(gene_id = str_sub(strsplit2(groupID, '_')[,2], end = -2),
+         id = paste(groupID, featureID),
+         padj = ifelse(padj < .1, 1, 0)) %>%
+  filter(gene_id %in% ind) %>%
+  acast(id ~ stage, value.var = 'padj') %>%
+  modified_vennDiagram(circle.col = c('red', 'blue', 'green'),
+                       mar = rep(0, 4),
+                       cex = rep(.7, 4),
+                       names = c('Clonal Expansion', 'Differentiation', 'Quiescence'))
+mtext('B', line = 1, adj = 0)
+```
+
+Figure 1. Summaries of differential expression and differential exon usage analyses of autophagy-related genes.  
+
+### figure 2  
+
+```{r figure_2, fig.height=6}
+# get autophagy gene set symbols
+ind <- gene_annotation %>%
+  filter(GO == 'GO:0006914') %>%
+  dplyr::select(SYMBOL) %>%
+  left_join(res_groups, by = c('SYMBOL'='row')) %>%
+  filter(padj < .1, abs(log2FoldChange) > 1) %>%
+  dplyr::select(SYMBOL) %>%
+  unlist %>% unique
+
+## figure: heatmap of significant autophagy genes
+mat <- assay(dds)[ind,]
+cols <- colorRampPalette(brewer.pal(n = 5, name = "Greens"))(200)
+ann <- data.frame(Induction = sample_table$induction,
+                  Stage = sample_table$stage,
+                  row.names = rownames(sample_table))
+ann_cols <- colorRampPalette(brewer.pal(n = 4, name = 'Blues'))(4) 
+names(ann_cols) <- unique(ann$`Time Point`)
+ann_cols <- list(Induction = c(Non = '#FEE6CE', MDI = '#E6550D'),
+                 Stage = c(Proliferation = '#EFF3FF',
+                                  Quiescence = '#BDD7E7',
+                                  `Clonal expansion` = '#6BAED6',
+                                  Differentiation = '#2171B5'))
+pheatmap(mat,
+         scale = 'row', legend = FALSE,
+         cellheight = 10, cellwidth = 12, fontsize = 6, cluster_cols = FALSE,
+         annotation_col = ann,
+         color = cols, border_color = NA,
+         annotation_colors = ann_cols)
+```
+
+Figure 2. Expression values of autophagy-related genes during the course of adipocyte differentiation.   
+
+### figure 3  
+
+```{r figure_3, fig.height=6}
+## figure: autophagy clusters
+e <- assay(dds)
+e <- (e - rowMeans(e))/rowSds(e)
+
+df <- melt(e) %>%
+  setNames(c('gene_id', 'sample', 'count')) %>%
+  left_join(sample_table) %>%
+  group_by(stage, gene_id) %>%
+  summarise(count = mean(count)) %>%
+  right_join(cm_sim) %>%
+  group_by(cluster, stage) %>%
+  mutate(ymin = min(count), ymax = max(count))
+  
+ggplot(df, aes(x = stage, y = count, group = gene_id)) +
+  facet_wrap(~cluster, ncol = 4) +
+  geom_ribbon(data = subset(df, cluster %in% paste(1:4)),
+              aes(ymin = ymin, ymax = ymax),
+              fill = 'gray', alpha = .5) +
+  geom_smooth(data = subset(df, cluster %in% paste(1:4)),
+              aes(group = cluster)) +
+  geom_line(data = subset(df, cluster %in% paste('Similar', 1:4)), 
+            aes(color = gene_id)) + 
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 60, size = 7, hjust = 1),
+        strip.background = element_rect(fill = 'gray', colour = 'white'),
+        legend.position = 'none') +
+  labs(x = '', y = 'Standarized Expression')
+```
+
+Figure 3. Expression patterns of autophagy-related genes and non-autophagy genes.   
+
+### figure 4  
+
+```{r figure_4, fig.height=5}
+res_go %>%
+  filter(category %in% unlist(mget('GO:0006914', GOBPOFFSPRING))) %>%
+  dplyr::select(stage, category, starts_with('Prop'), FDR) %>%
+  gather(prop, val, PropDown, PropUp) %>%
+  mutate(val = ifelse(prop == 'PropDown', -val, val),
+         Signifaicant = ifelse(FDR < .1, 'Yes', 'NO'),
+         stage = factor(stage, levels = unique(stage))) %>%
+  ggplot(aes(x = category, y = val, fill = Signifaicant)) +
+  geom_col() +
+  geom_hline(yintercept = 0) +
+  facet_wrap(~stage, nrow = 3, strip.position = 'left') +
+  theme_minimal() +
+  theme(legend.position = 'top',
+        axis.text.x = element_text(angle = 60, size = 7, hjust = 1),
+        strip.background = element_rect(fill = 'lightgray', color = NA)) +
+  labs(x = '', y = 'Proportion of DE Genes')
+```
+
+Figure 4. Enrichment of autophagy gene sets during adipocyte differentiation.  
+
+### figure 5  
+
+```{r figure_5}
+gene_data <- fpm(dds) %>%
+  melt %>%
+  setNames(c('gene_id', 'sample', 'fpm')) %>%
+  left_join(sample_table) %>%
+  group_by(gene_id, stage) %>%
+  summarise(ave = mean(fpm)) %>%
+  acast(gene_id ~ stage) %>%
+  scale
+
+select <- AnnotationDbi::select
+pathview(gene_data[,c(3,4)], pathway.id = '04140', species = 'Mus musculus',
+         multi.state = TRUE, gene.idtype = 'SYMBOL', out.suffix = 'autophagy23')
+```
+
+![](mmu04140.autophagy23.multi.png)
+
+Figure 5. Autophagy KEGG pathway map in proliferating pre-adipocytes and differentiating adipocytes.  
+
+# REFERENCES  
